@@ -300,6 +300,27 @@ def duel_history(
     return DuelHistoryOut(items=[_to_out(d, _rounds(db, d.id)) for d in duels])
 
 
+@router.get("/active", response_model=DuelOut | None)
+def active_duel(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> DuelOut | None:
+    """Partida ainda em curso, ou `null`.
+
+    Permite ao frontend retomar a partida depois de recarregar a pagina. Sem
+    isto o jogador ficava preso: o servidor recusava abrir outra ("ja tens uma
+    partida a decorrer") e a interface nao sabia qual era para a continuar ou
+    abandonar. Declarada antes de `/{duel_id}` pelo mesmo motivo que `/list`.
+    """
+    duel = (
+        db.query(Duel)
+        .filter(Duel.user_id == user.id, Duel.status == "active")
+        .order_by(Duel.id.desc())
+        .first()
+    )
+    return _to_out(duel, _rounds(db, duel.id)) if duel else None
+
+
 @router.post("/{duel_id}/roll", response_model=DuelRollResponse)
 def roll_round(
     duel_id: int,

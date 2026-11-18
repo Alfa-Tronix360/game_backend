@@ -376,6 +376,36 @@ def test_history_hides_active_matches(client):
     assert body["items"] == []
 
 
+def test_active_returns_the_open_match_so_it_can_be_resumed(client):
+    auth = new_player(client)
+    assert client.get("/api/v1/duel/active", headers=auth).json() is None
+
+    start = client.post(
+        "/api/v1/duel/start",
+        json={"stake": "10.00", "player_side": "red"},
+        headers=auth,
+    ).json()
+    active = client.get("/api/v1/duel/active", headers=auth)
+    assert active.status_code == 200
+    body = active.json()
+    assert body["id"] == start["duel"]["id"]
+    assert body["status"] == "active"
+    assert len(body["rounds"]) == 1
+
+    client.post(f"/api/v1/duel/{body['id']}/forfeit", headers=auth)
+    assert client.get("/api/v1/duel/active", headers=auth).json() is None
+
+
+def test_active_is_private_to_each_player(client):
+    owner = new_player(client)
+    client.post(
+        "/api/v1/duel/start",
+        json={"stake": "10.00", "player_side": "blue"},
+        headers=owner,
+    )
+    assert client.get("/api/v1/duel/active", headers=new_player(client)).json() is None
+
+
 # --- justeza ---------------------------------------------------------------
 
 

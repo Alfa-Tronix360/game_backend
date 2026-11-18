@@ -184,8 +184,13 @@ def test_round_increments_only_the_winning_side():
 
 
 def test_match_is_decided_before_10_rounds():
-    """Com 1/6 de empate, o alvo de 10 tem de ser alcancado em 10 a 29 rondas."""
-    seed = generate_server_seed()
+    """Com 1/6 de empate, o alvo de 10 e alcancado tipicamente em 10 a 29 rondas.
+
+    Semente fixa: 29 nao e um limite matematico (uma partida renhida com
+    muitos empates pode durar mais), e com uma semente aleatoria o teste
+    falhava de vez em quando sem haver erro nenhum no codigo.
+    """
+    seed = "5e" * 32
     for duel_id in range(1, 40):
         blue_score = red_score = 0
         rounds = 0
@@ -244,3 +249,22 @@ def test_progress_is_bounded():
 def test_no_next_tier_at_the_top():
     assert maturity.next_tier(Decimal("999999999")) is None
     assert maturity.progress_to_next(Decimal("999999999")) == Decimal(1)
+
+
+def test_d6_chi_square_both_sides():
+    """Qui-quadrado sobre os dois lados: as 6 faces saem com frequencia 1/6.
+
+    Com 5 graus de liberdade, o valor critico a 0,1% e 20,52. Uma semente fixa
+    torna o teste determinista; um dado viciado (ex.: so 1 e 6) daria um
+    qui-quadrado na casa das dezenas de milhar.
+    """
+    seed = "ab" * 32
+    samples = 60_000
+    for side in ("blue", "red"):
+        counts = [0] * 6
+        for i in range(samples):
+            counts[roll_d6(seed, 99, i, side) - 1] += 1
+        expected = samples / 6
+        chi_square = sum((c - expected) ** 2 / expected for c in counts)
+        assert all(c > 0 for c in counts), f"{side}: ha faces que nunca saem {counts}"
+        assert chi_square < 20.52, f"{side}: qui-quadrado {chi_square:.2f}, contagens {counts}"
